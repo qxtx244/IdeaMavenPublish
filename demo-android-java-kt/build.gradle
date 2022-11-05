@@ -1,0 +1,50 @@
+plugins {
+    id 'com.android.library'
+
+    //使用dokka必须添加kotlin插件
+    id 'org.jetbrains.kotlin.android'
+
+    //引入dokka插件
+    id "org.jetbrains.dokka" version "1.6.10"
+}
+
+android {
+    compileSdk 31
+
+    defaultConfig {
+        minSdk 24
+        versionCode 1
+        versionName '1.0.0'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+}
+
+dependencies {
+
+    //使用dokka必须添加此依赖
+    implementation 'androidx.core:core-ktx:1.7.0'
+}
+
+//注意，只能同时使用一种示例
+
+//示例1：发布到本地maven仓库
+ext {
+    //pomGroupId = 'com.qxtx.idea.gradle.demo_mavenpublish'       //可选配置，如未配置，默认使用包名
+    //pomArtifactId = 'android-java-kt-script'                             //可选配置，如未配置，默认使用module名称（project.name）
+    pomMavenCentral = "${rootDir.absolutePath}/.mavenCentral"  //可选配置，如果未配置，使用脚本中的预设值
+}
+apply from: "${rootDir.absolutePath}/scripts/Gradle7.x_after/maven_publish_android_dokka.gradle"  //引入脚本
+
+////示例2：发布到远程maven仓库
+//ext {
+//    pomMavenAccount = ['账户名称', '账户密码']
+//    pomMavenCentral = "https://s01.oss.sonatype.org/content/repositories/releases/"
+//}
+//apply from: "${rootDir.absolutePath}/scripts/Gradle7.x_after/maven_publish_android_dokka.gradle"

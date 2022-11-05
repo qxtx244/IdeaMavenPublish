@@ -1,0 +1,338 @@
+import org.gradle.api.internal.artifacts.DefaultExcludeRule
+
+/*
+ * 实现上传到maven仓库，适用于java library和android library（不推荐），不支持kotlin语言
+ *
+ * 此脚本仅适用于Gradle7.x或更高版本
+ *
+ * > 基本概念
+ *   android library：引入了com.android.application或com.android.library插件的module
+ *   java library：未引入com.android.application或com.android.library插件的module，使用java/groovy语言编写的项目
+ *
+ * > 使用步骤：
+ *   1. 在module的build.gradle最后面添加如下代码：
+ *      ext.pomSrcDirs = ["src/main/groovy", "xxx/src/main/java", ...]    //必须配置
+ *      ext.pomGroupId = 'a.b.xxx' //一般用library的包名                   //必须配置
+ *      ext.pomVersionName = '1.2.3' //版本名称                            //必须配置
+ *      ext.pomBuildFilePath = 'xxx'                                       //建议配置，android library必须配置这个参数
+ *      ext.pomJavaDoc = "true"
+ *      ...
+ *
+ *      apply from: "本文件路径（右键文件》CopyPath即可复制文件绝对路径"   //必须添加这行
+*    2. 检查build.gradle中的上传配置是否正确（比如maven仓库地址，版本名称，groupId，artifactId等）；  
+ *   3. sync工程，然后build构建项目，执行assemble打包项目；
+ *   4. 点击展开AS右侧的"Gradle"面板，依次展开 module名称》publishing，双击执行"publish"任务，等待执行完成。
+ *   注意1：发布到snapshots仓库，版本名称必须在末尾加上“-SNAPSHOT”后缀，否则发布请求将会被远程仓库拒绝。
+ *   注意2：相同的release版本禁止重复发布。
+ *
+ * > 参数配置说明：
+ *   允许在外部配置关键参数，可使用的ext变量如下（在build.gradle中配置：ext.xxx = yyy）。当未定义时，将取默认值
+ *   pomMavenAccount   maven账户信息，ArrayList<String>类型，格式：['账户名', '账户密码']
+ *   pomMavenCentral   maven仓库地址，String类型
+ *   pomGroupId         组id，String类型。通常使用module包名
+ *   pomArtifactId     artifactId，String类型。通常使用module名称，即project.name
+ *   pomVersionName    版本名称，String类型。如果是发布到snapshots仓库需要在末尾加上'-SNAPSHOT'关键字
+ *   pomDesc            描述信息，String类型
+ *   pomSrcDirs        源码目录路径，String类型。可配置一个或多个。ArrayList<String>类型，格式：['xx', 'yy', ...]
+ *   pomJavaDocEnable 是否生成并发布javaDoc，String类型。取值为"true"或"false"
+ *   pomSourceEnable  是否打包并发布源码，String类型。取值为"true"或"false"
+ *   pomBuildFilePath  构建输出版本的绝对路径，String类型。如未配置，取默认生成路径。android library必须配置此参数
+ *
+ *  注意，javadoc功能可能会导致Gradle报错（注释格式不规范或其它原因等），这时候可以尝试将pomJavaDoc置为false，不输出javadoc文档
+ */
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+//添加maven-publish插件（Gradle6.x或更早版本是maven）
+apply plugin: 'maven-publish'
+
+/**
+ * 获取是否允许发布源码。如果未配置，默认返回true
+ * @return true表示发布，否则不发布
+ */
+private boolean isSourceEnable() {
+    def ret = getPomExt("pomSourceEnable")
+    if (ret == null) ret = 'true'
+    ret.toLowerCase() == 'true'
+}
+
+/**
+ * 获取是否允许发布javaDoc。如果未配置，默认返回false
+ * @return true表示允许，否则禁止
+ */
+private boolean isJavaDocEnable() {
+    def ret = getPomExt("pomJavaDocEnable")
+    if (ret == null) ret = 'false'
+    ret.toLowerCase() == 'true'
+}
+
+/**
+ * 构建输出版本的绝对路径。如外部未配置，返回默认生成路径
+ * @return 路径
+ */
+private String getPomBuildFilePath() {
+    def path = getPomExt("pomBuildFilePath")
+    if (path == null) return "${project.buildDir.absolutePath}/libs/${project.name}.jar"
+    return path
+}
+
+/**
+ * 获取maven私服验证信息，即账户和密码。如果为null，则表示不需要使用账户密码
+ * @return 账户和密码
+ */
+private ArrayList<String> getPomMavenAccount() {
+    getPomExt("pomMavenAccount")
+}
+
+/**
+ * 获取maven仓库地址，如果ext未定义，使用本地仓库
+ * @return maven仓库地址
+ */
+private String getPomMavenCentral() {
+    def url = getPomExt("pomMavenCentral")
+    if (url == null) url = "${rootDir.absolutePath}/.mavenCentral"
+    if (url == null) throw new Exception("无法获取maven仓库地址！请配置maven仓库地址")
+    url.toString()
+}
+
+/**
+ * 获取groupId
+ * @return groupId
+ */
+private String getPomGroupId() {
+    def groupId = getPomExt("pomGroupId")
+    if (groupId == null) throw Exception("无法获取groupId！请配置groupId")
+    groupId.toString()
+}
+
+/**
+ * 获取artifactId，如果ext未定义，则使用project名称
+ * @return artifactId
+ */
+private String getPomArtifactId() {
+    def artifactId = getPomExt("pomArtifactId")
+    if (artifactId == null) artifactId = project.name
+    artifactId.toString()
+}
+
+/**
+ * 获取versionName
+ * @return versionName
+ */
+private String getPomVersionName() {
+    def versionName = getPomExt("pomVersionName")
+    if (versionName == null) throw Exception("无法获取versionName！")
+    versionName.toString()
+}
+
+/**
+ * 获取描述信息
+ * 如果ext未定义，则为空
+ * @return 描述信息
+ */
+private String getPomDesc() {
+    def desc = getPomExt("pomDesc")
+    if (desc == null) desc = ''
+    desc.toString()
+}
+
+/**
+ * 获取源码目录
+ * @return 可能为null
+ */
+private ArrayList<String> getPomSrcDirs() {
+    getPomExt("pomSrcDirs")
+}
+
+private def getPomExt(String name) {
+    def extMap = getExtensions().extraProperties
+    if (extMap.has(name)) return extMap.get(name)
+    null
+}
+
+/** 需要认证的maven仓库url */
+def CREDENTIAL_CENTRAL_URL = "xxx"
+/** 认证账户 */
+def CREDENTIAL_USER = "yyy"
+/** 认证密码 */
+def CREDENTIAL_PASSWORD = "zzz"
+
+afterEvaluate {
+    publishing {
+        publications {
+            register(project.name, MavenPublication.class) {
+                println("${project.name}发布的目标maven仓库：${getPomMavenCentral()}" +
+                        "\ngroupId=${getPomGroupId()}" +
+                        "\nartifactId=${getPomArtifactId()}" +
+                        "\nversion=${getPomVersionName()}" +
+                        "\ndesc=${getPomDesc()}" +
+                        "\njavadoc? ${isJavaDocEnable()}")
+
+                groupId       getPomGroupId()
+                artifactId   getPomArtifactId()
+                version       getPomVersionName()
+                description  getPomDesc()
+
+                String filePath = getPomBuildFilePath()
+                if (filePath != null) {
+                    println "构建版本输出路径为：$filePath"
+                    artifact(filePath)
+                }
+
+                if (isSourceEnable()) {
+                    artifact(sourcesJar)
+                }
+
+                if (isJavaDocEnable()) {
+                    artifact(javadocsJar)
+                }
+
+                //添加三方依赖
+                pom.withXml {
+                    //三方依赖项
+                    //<dependencies>
+                    //  ...
+                    //  <dependency>
+                    //      <groupId>x.x.x</groupId>
+                    //      <artifactId>yyy</artifactId>
+                    //      <version>z.z.z</version>
+                    //      <scope>compile|runtime</scope>
+                    //      <type>jar/war/aar/pom等等，默认jar</type>
+                    //  </dependency>
+                    //  ...
+                    //</dependencies>
+                    def depNode = asNode().appendNode('dependencies')
+                    try {
+                        configurations.api.allDependencies.each { dependency ->
+                            def node = addDependencyNode(depNode, dependency)
+                            if (node != null) {
+                                node.appendNode('scope', 'compile')
+
+                                //排除的依赖项
+                                addExclusionNode(dependency, node)
+                            }
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace()
+                    }
+
+                    //不考虑test
+                    //不考虑assembleDebug，只考虑assembleRelease
+                    ArrayList<String> list = new ArrayList<>()
+                    //找到执行的task名称列表
+                    gradle.startParameter.taskRequests.each { request ->
+                        list.addAll(request.args)
+                    }
+                    if (!list.isEmpty()) {
+                        if (list.contains('assembleRelease')) {
+                            try {
+                                configurations.releaseApi.allDependencies.each { dependency ->
+                                    def node = addDependencyNode(depNode, dependency)
+                                    if (node != null) {
+                                        node.appendNode('scope', 'compile')
+                                        addExclusionNode(dependency, node)
+                                    }
+                                }
+                            } catch (Exception e) {
+                                e.printStackTrace()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        repositories {
+            maven {
+                def centralUrl = getPomMavenCentral()
+                url { uri(centralUrl) }
+                def info = getPomMavenAccount()
+                if (info != null) {
+                    credentials {
+                        username info[0]
+                        password info[1]
+                    }
+                } else {
+                    if (centralUrl.startsWith(CREDENTIAL_CENTRAL_URL)) {
+                        //println "默认maven仓库，使用预置的账号认证"
+                        credentials {
+                            username CREDENTIAL_USER
+                            password CREDENTIAL_PASSWORD
+                        }
+                    }
+                }
+                allowInsecureProtocol true
+            }
+        }
+    }
+}
+
+/** 生成javaDoc */
+task javadocs(type: Javadoc) {
+    options {
+        encoding('utf-8')
+        links 'http://docs.oracle.com/javase/8/docs/api'
+    }
+    failOnError = false
+    def dirs = getPomSrcDirs()
+    if (dirs != null) {
+        source dirs
+    }
+}
+
+task javadocsJar(type: Jar, dependsOn: javadocs, group: 'extension') {
+    getArchiveClassifier().set('javadoc')
+    from javadocs.destinationDir
+}
+
+task sourcesJar(type: Jar, group: 'extension') {
+    getArchiveClassifier().set('sources')
+
+    def dirs = getPomSrcDirs()
+    if (dirs != null) {
+        from dirs
+    }
+}
+
+/**
+ * 排除的依赖项
+ * <dependency>
+ *  ...
+ *  <exclusions>
+ *      <exclusion>
+ *          <groupId>xxx</groupId>
+ *          <artifactId>xxx</artifactId>
+ *      </exclusion>
+ *  </exclusions>
+ *  ...
+ * </dependency>
+ */
+private def addExclusionNode(Dependency dependency, def dependencyNode) {
+    HashSet<DefaultExcludeRule> set = dependency.excludeRules
+    if (set != null && !set.isEmpty()) {
+        def exclusionNode = dependencyNode.appendNode('exclusions')
+        set.each { rule ->
+            //println "添加依赖排除项：${rule.group}:${rule.module}"
+            def excludeNode = exclusionNode.appendNode('exclusion')
+            excludeNode.appendNode('groupId', rule.group)
+            excludeNode.appendNode('artifactId', rule.module)
+        }
+    }
+}
+
+private def addDependencyNode(def dependencyNode, Dependency dependency) {
+    def node = null
+    if (dependency.name != 'unspecified' && dependency.group != null
+            && dependency.version != null && dependency.version != 'unspecified') {
+        //println "dept name=${dependency.name}, group=${dependency.group}, version=${dependency.version}"
+        node = dependencyNode.appendNode('dependency')
+        node.appendNode('groupId', dependency.group)
+        node.appendNode('artifactId', dependency.name)
+        node.appendNode('version', dependency.version)
+    }
+    node
+}
