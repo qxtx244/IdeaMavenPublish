@@ -6,14 +6,14 @@ pluginManagement {
     }
 }
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories {
-        google()
-        mavenCentral()
-    }
+    repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
 }
 rootProject.name = "IdeaMavenPublish"
-include ':demo-android-java'
-include ':demo-android-kt'
-include ':demo-android-java-kt'
-include ':demo-java-java'
+include ':demo-use-script:lib-android-java'
+include ':demo-use-script:lib-android-kt'
+include ':demo-use-script:lib-android-java-kt'
+include ':demo-use-script:lib-java-java'
+
+include ':demo-use-plugin:lib-java-java'
+
+include ':mavenpublish-java'

@@ -14,22 +14,27 @@
 现在，我们有足够简单的Gradle脚本来轻易地实现将自己的库发布到maven仓库，无论是本地仓库还是远程仓库，无论是java还是kotlin。
 这些Gradle脚本适用于大部分场景，并且参数配置也比较灵活。
 
-## 使用脚本
+## 使用脚本或插件
 不同的Gradle插件版本支持的maven插件版本不同，不同的maven插件用法也有所差异：  
 · `Gradle6.x或更早版本`，支持的maven插件为'maven'；  
 · `Gradle7.x或更高版本`，支持的maven插件为'maven-publish'。
 
-对应版本的maven插件使用方法请参考[scripts][1]目录内的[README.md][2]。
+脚本文件：对应版本的脚本使用方法请参考[scripts][1]目录内的[README.md][2]。  
+插件：对应版本的插件使用方法请参考具体的插件工程说明。
 
-## demo
-* [demo-android-java][3] 演示了如何使用提供的脚本将使用纯java编写的android library发布到指定的maven仓库；
-* [demo-android-kt][4] 演示了如何使用提供的脚本将使用纯kotlin编写的android library发布到指定的maven仓库；
-* [demo-android-java-kt][5] 演示了如何使用提供的脚本将使用java和kotlin混合编写的android library发布到指定的maven仓库；
-* [demo-java-java][6] 演示了如何使用提供的脚本将使用纯java编写的java library发布到指定的maven仓库。
+## 使用脚本文件的demo
+* [lib-android-java][3] 演示了如何使用提供的脚本将使用纯java编写的android library发布到指定的maven仓库；
+* [lib-android-kt][4] 演示了如何使用提供的脚本将使用纯kotlin编写的android library发布到指定的maven仓库；
+* [lib-android-java-kt][5] 演示了如何使用提供的脚本将使用java和kotlin混合编写的android library发布到指定的maven仓库；
+* [lib-java-java][6] 演示了如何使用提供的脚本将使用纯java编写的java library发布到指定的maven仓库。
+
+## 使用插件的demo
+* [lib-java-java][7] 演示了如何使用gradle插件将使用纯java编写的java library发布到指定的maven仓库。
 
 [1]: https://github.com/qxtx244/IdeaMavenPublish/tree/master/scripts
 [2]: https://github.com/qxtx244/IdeaMavenPublish/blob/master/scripts/README.md
-[3]: https://github.com/qxtx244/IdeaMavenPublish/tree/master/demo-android-java
-[4]: https://github.com/qxtx244/IdeaMavenPublish/tree/master/demo-android-kt
-[5]: https://github.com/qxtx244/IdeaMavenPublish/tree/master/demo-android-java-kt
-[6]: https://github.com/qxtx244/IdeaMavenPublish/tree/master/demo-java-java
+[3]: https://github.com/qxtx244/IdeaMavenPublish/tree/master/demo-use-script/lib-android-java
+[4]: https://github.com/qxtx244/IdeaMavenPublish/tree/master/demo-use-script/lib-android-kt
+[5]: https://github.com/qxtx244/IdeaMavenPublish/tree/master/demo-use-script/lib-android-java-kt
+[6]: https://github.com/qxtx244/IdeaMavenPublish/tree/master/demo-use-script/lib-java-java
+[7]: https://github.com/qxtx244/IdeaMavenPublish/tree/master/demo-use-plugin/lib-java-java

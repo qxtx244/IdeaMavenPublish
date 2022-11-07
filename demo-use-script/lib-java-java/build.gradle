@@ -1,0 +1,33 @@
+plugins {
+    id 'java-library'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+//注意，只能同时使用一种示例
+
+//示例1：发布到本地maven仓库
+ext {
+    pomVersionName = '1.0.0'                              //必须配置
+    pomSrcDirs = ["src/main/java"]                       //必须配置
+    pomGroupId = 'com.qxtx.idea.gradle.mavenpublish'  //必须配置
+    //pomArtifactId = 'java-java-script'   //可选配置，如未配置，使用脚本中的预设值
+    pomJavaDocEnable = "true"               //可选配置，如未配置，使用脚本中的预设值
+    pomMavenCentral = "${rootDir.absolutePath}/.mavenCentral" //可选配置，如果未配置，使用脚本中的预设值
+}
+apply from: "${rootDir.absolutePath}/scripts/Gradle7.x_after/maven_publish_java.gradle"  //引入脚本
+
+////示例2：发布到远程maven仓库
+//ext {
+//    pomVersionName = '1.0.0'
+//    pomSrcDirs = ["src/main/java"]
+//    pomGroupId = 'com.qxtx.idea.gradle.mavenpublish'
+//    pomArtifactId = 'java-java-script'
+//    pomJavaDocEnable = "true"
+//    pomMavenAccount = ['账户名称', '账户密码']
+//    pomMavenCentral = "https://s01.oss.sonatype.org/content/repositories/releases/"
+//}
+//apply from: "${rootDir.absolutePath}/scripts/Gradle7.x_after/maven_publish_java.gradle"

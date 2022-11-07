@@ -1,0 +1,37 @@
+plugins {
+    id 'groovy'
+}
+
+java {
+    sourceCompatibility JavaVersion.VERSION_1_8
+    targetCompatibility JavaVersion.VERSION_1_8
+}
+
+dependencies {
+    implementation localGroovy()
+    implementation gradleApi()
+}
+
+def versionName = '1.0.1'
+gradle.buildFinished {
+    delete('jars')
+    copy {
+        includeEmptyDirs false
+        from (buildDir.absolutePath + '/libs') {
+            include '*.jar'
+            rename '(.*).jar', "\$1-${versionName}.jar"
+        }
+        into "${projectDir.absolutePath}/jars"
+    }
+}
+
+ext {
+    pomBuildFilePath = project.file("jars/${project.name}-${versionName}.jar")
+    pomVersionName = versionName
+    pomSrcDirs = ["src/main/groovy"]
+    pomGroupId = 'com.qxtx.idea.gradle'
+    pomArtifactId = 'IdeaMavenPublishJava'
+    pomJavaDocEnable = "false"
+    pomMavenCentral = "${rootDir.absolutePath}/.mavenCentral"
+}
+apply from: "${rootDir.absolutePath}/scripts/Gradle7.x_after/maven_publish_java.gradle"  //引入脚本
