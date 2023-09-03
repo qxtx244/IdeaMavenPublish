@@ -12,7 +12,7 @@ dependencies {
     implementation gradleApi()
 }
 
-def versionName = '1.0.1'
+def versionName = '1.0.0'
 gradle.buildFinished {
     delete('jars')
     copy {
@@ -31,7 +31,8 @@ ext {
     pomSrcDirs = ["src/main/groovy"]
     pomGroupId = 'com.qxtx.idea.gradle'
     pomArtifactId = 'IdeaMavenPublishJava'
-    pomJavaDocEnable = "false"
+    pomJavaDocEnable = 'true'
+    pomDesc = 'The maven publish plugin for java library'
     pomMavenCentral = "${rootDir.absolutePath}/.mavenCentral"
 }
 apply from: "${rootDir.absolutePath}/scripts/Gradle7.x_after/maven_publish_java.gradle"  //引入脚本

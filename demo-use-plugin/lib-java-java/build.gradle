@@ -13,14 +13,14 @@ buildscript {
 plugins {
     id 'java-library'
 }
-apply plugin: 'idea-maven-publish-java'  //引入插件
+apply plugin: 'idea-mavenpublish-java'  //引入插件
 
 //配置插件
 MavenPublish {
     pubGroupId 'com.qxtx.idea.gradle.mavenpublish'  //必须配置
     pubVersionName '1.0.0'                             //必须配置
     pubSrcDirs = ["src/main/java"]                    //必须配置
-    pubArtifactId 'java-java-plugin'                             //可选
+    pubArtifactId 'test-java-publish'                          //可选
     pubJavaDocEnable true                                         //可选
     pubMavenCentral "${rootDir.absolutePath}/.mavenCentral"  //可选
 }

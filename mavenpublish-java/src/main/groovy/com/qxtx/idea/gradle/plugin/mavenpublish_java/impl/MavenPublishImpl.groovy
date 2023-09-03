@@ -10,7 +10,7 @@ import org.gradle.api.tasks.javadoc.Javadoc
 import org.gradle.jvm.tasks.Jar
 
 /**
- * 插件功能的具体实现类
+ * 插件功能的具体实现
  */
 class MavenPublishImpl extends Base {
 
@@ -64,8 +64,6 @@ class MavenPublishImpl extends Base {
 
     @Override
     void start(Project target) {
-        println '开始执行插件功能...'
-
         createPackagingTask(target)
 
         target.publishing {
@@ -98,7 +96,7 @@ class MavenPublishImpl extends Base {
                     def srcDir = config.pubSrcDirs
                     if (config.pubSourceEnable) {
                         if (srcDir == null || srcDir.isEmpty()) {
-                            println "无效的源码目录，无法发布源码"
+                            println "无效的源码目录！"
                         } else {
                             artifact(sourceJarTask)
                         }
@@ -213,7 +211,6 @@ class MavenPublishImpl extends Base {
         }
 
         if (target.getTasksByName("javadocsJar", false).isEmpty()) {
-            println '创建javadoc任务...'
             javadocsJarTask = target.task([type: Jar, dependsOn: javadocsTask, group: 'extension'], "javadocsJar") {
                 getArchiveClassifier().set('javadoc')
                 from javadocsTask.destinationDir
@@ -221,7 +218,6 @@ class MavenPublishImpl extends Base {
         }
 
         if (target.getTasksByName("sourceJar", false).isEmpty()) {
-            println '创建源码打包任务...'
             sourceJarTask = target.task([type: Jar, group: 'extension'], "sourceJar") {
                 getArchiveClassifier().set('sources')
 

@@ -11,7 +11,6 @@
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
-            <option value="$PROJECT_DIR$/buildSrc" />
             <option value="$PROJECT_DIR$/demo-use-plugin" />
             <option value="$PROJECT_DIR$/demo-use-plugin/lib-java-java" />
             <option value="$PROJECT_DIR$/demo-use-script" />
@@ -22,7 +21,6 @@
             <option value="$PROJECT_DIR$/mavenpublish-java" />
           </set>
         </option>
-        <option name="resolveModulePerSourceSet" value="false" />
       </GradleProjectSettings>
     </option>
   </component>

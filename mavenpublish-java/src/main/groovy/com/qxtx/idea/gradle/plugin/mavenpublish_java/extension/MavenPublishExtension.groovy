@@ -10,7 +10,7 @@ class MavenPublishExtension {
     /** maven仓库地址 */
     String pubMavenCentral = null
 
-    /** maven账户信息，格式：['USER', 'PASSWORD'] */
+    /** maven账户信息，格式：['账户名称', '账户密码'] */
     ArrayList<String> pubMavenAccount = null
 
     /** 组id。通常使用module包名 */

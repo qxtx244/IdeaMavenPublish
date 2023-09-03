@@ -216,9 +216,7 @@ afterEvaluate {
                                 addExclusionNode(dependency, node)
                             }
                         }
-                    } catch (Exception e) {
-                        e.printStackTrace()
-                    }
+                    } catch (Exception ignore) {}
 
                     //不考虑test
                     //不考虑assembleDebug，只考虑assembleRelease
