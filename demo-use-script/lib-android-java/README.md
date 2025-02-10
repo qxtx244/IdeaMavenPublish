@@ -1,7 +1,3 @@
-demo-java-only
-==============
-
-module演示了如何使用[maven_publish_java.gradle][1]脚本来将使用纯java编写的库发布到指定的maven仓库。
-
-
-[1]: https://github.com/qxtx244/IdeaMavenPublish/blob/master/scripts/Gradle7.x_after/maven_publish_java.gradle
+lib-android-kt
+=============
+用于演示通过 Gradle 脚本将使用 kotlin 编写的 android library 发布到 maven 仓库的示例

@@ -1,0 +1,40 @@
+plugins {
+    id 'groovy'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+dependencies {
+    implementation(gradleApi())
+    implementation(localGroovy())
+}
+
+def versionName = '2.0.0'
+gradle.buildFinished {
+    delete('jars')
+    copy {
+        includeEmptyDirs false
+        from (buildDir.absolutePath + '/libs') {
+            include '*.jar'
+            rename '(.*).jar', "\$1-${versionName}.jar"
+        }
+        into "${projectDir.absolutePath}/jars"
+    }
+}
+
+ext {
+    pubMavenCentral = "${rootDir.absolutePath}/.mavenCentral"
+    pubVersion = versionName
+    pubGroupId = 'com.qxtx.idea.gradle'
+    pubArtifactId = 'MavenPublish_AndroidDokka'
+    pubSrcDirs = ['src/main/groovy']
+    pubArchivePath = project.file("jars/${project.name}-${versionName}.jar").absolutePath
+    pubSourceEnable = true
+    pubGroovyDocEnable = true
+    pubDesc = 'The maven publish plugin for android library and dokka supported'
+    pubExtraFiles = ['README.md']
+}
+apply from: "${rootDir.absolutePath}/scripts/Gradle1.3_after/maven_publish_java.gradle"

@@ -12,8 +12,13 @@ rootProject.name = "IdeaMavenPublish"
 include ':demo-use-script:lib-android-java'
 include ':demo-use-script:lib-android-kt'
 include ':demo-use-script:lib-android-java-kt'
-include ':demo-use-script:lib-java-java'
+include ':demo-use-script:lib-java'
 
-include ':demo-use-plugin:lib-java-java'
-
+include ':demo-use-plugin:libJava'
+include ':demo-use-plugin:libAndroid'
+include ':demo-use-plugin:libAndroidDokka'
+//
 include ':mavenpublish-java'
+include ':mavenpublish-android'
+include ':mavenpublish-android-dokka'
+

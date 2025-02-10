@@ -1,0 +1,65 @@
+buildscript {
+    repositories {
+        maven {
+            url { uri("${rootDir.absolutePath}/.mavenCentral") }  //插件所在的仓库地址
+        }
+        google()
+        mavenCentral()
+    }
+
+//    dependencies {
+//        classpath 'com.qxtx.idea.gradle:MavenPublish_AndroidDokka:2.0.0'  //添加插件的环境变量
+//    }
+}
+
+plugins {
+    id 'com.android.library'
+
+    //使用dokka必须添加kotlin插件
+    id 'org.jetbrains.kotlin.android'
+
+    id 'org.jetbrains.dokka' version '1.6.10'
+}
+
+android {
+    compileSdk 32
+
+    defaultConfig {
+        minSdk 28
+        targetSdk 32
+        versionCode 1
+        versionName '1.0.3'
+
+        consumerProguardFiles "consumer-rules.pro"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.7.0'
+}
+
+
+////apply plugin: 'idea-publish'
+//MavenPublish {
+//    pubMavenCentral "${rootDir.absolutePath}/.mavenCentral"  //可选
+//    pubGroupId = 'com.qxtx.idea.gradle.mavenpublish'  //必须配置
+//    pubVersion = '2.0.0'                             //必须配置
+//    pubSrcDirs = ["src/main/java"]                 //必须配置
+//    pubArtifactId = 'pluginDemo_android_dokka'     //必须配置
+//    pubJavaDocEnable = true
+//    pubSourceEnable = true
+//    pubHtmlDocEnable = true
+//    pubDesc = "测试 maven 发布功能"
+//    pubExtraFiles = [ 'README.md' ]
+//}

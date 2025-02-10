@@ -1,0 +1,570 @@
+import org.gradle.api.internal.artifacts.DefaultExcludeRule
+
+/*
+ * @author qxtx244
+ * last modify：2025年1月2日 13点29分
+ *
+ * <pre>
+ * 实现上传到 maven 仓库，适用于 android library，并且同时支持 java 和 kotlin 语言，支持生成 javadoc / html / markdown 等类型的 api 文档，是纯 kotlin / java&kotlin 混合项目的首选脚本。
+ *
+ * 此脚本仅适用于 Gradle1.3 或更高版本
+ *
+ * # 基本概念
+ *   android library：引入了 com.android.application 或 com.android.library 插件的 module
+ *
+ * # 环境配置方法：
+ * 1. 在根工程 build.gradle 的顶部添加如下代码（buildscript 闭包必须位于文件顶部）：
+ * ```
+ * buildscript {
+ *    dependencies {
+ *        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.6.21'  //添加 kotlin gradle 插件
+ *        classpath 'org.jetbrains.dokka:dokka-gradle-plugin:1.6.10'    //不要使用更高版本，高版本 AGP 可能不兼容高版本的 dokka 插件
+ *    }
+ * }
+ * ```
+ * 2. 在 module 的 build.gradle 中添加：
+ * ```
+ * dependencies {
+ *    implementation 'androidx.core:core-ktx:1.7.0'   //添加这一行，版本可自选
+ * }
+ * ```
+ *
+ * # 使用步骤：
+ * 由于需要使用 android 插件中的变量，必须将以下代码添加到 android{} 之后，建议放到 build.gradle 末尾。
+ * 1. 在 module 的 build.gradle 最后面添加如下代码：
+ * ```
+ * ext.pubMavenCentral = 'maven 仓库的 url'                         //必须配置
+ * ...
+ * ```
+ * 或
+ * ```
+ * ext {
+ *     pubMavenCentral = 'maven 仓库的 url'                         //必须配置
+ *     ...
+ * }
+ *
+ * apply from: "本文件路径（在 IDE 中右键脚本文件》CopyPath 即可复制文件绝对路径"   //必须添加这行，以将脚本应用到 module
+ * ```
+ * 2. 检查 build.gradle 中的上传配置是否正确（如 pubMavenCentral 等）；
+ * 3. sync 工程，然后执行 assemble 打包项目；
+ * 4. 点击展开 AS 右侧的 "Gradle" 面板，依次展开 module名称》publishing，双击执行“publish”任务，等待执行完成。
+ * 注意 1：发布到 snapshots 仓库，版本名称必须在末尾加上“-SNAPSHOT”后缀，否则发布请求将会被远程仓库拒绝。
+ * 注意 2：相同的 release 版本禁止重复发布。
+ *
+ * # 参数配置说明：
+ * - pubMavenCentral   maven 仓库地址，String 类型。格式：'http://xxx.xxx.xxx'
+ * - pubMavenAccount   maven 账户信息，ArrayList<String> 类型，格式：['账户名', '账户密码']
+ * - pubGroupId        组 id，String类型。通常使用 module 包名。格式：'x.y.z'
+ * - pubArtifactId     artifactId，String 类型。通常使用 module 名称，即 project.name。格式：'xxx'
+ * - pubVersion        版本名称，String 类型。如果是发布到 snapshots 仓库需要在末尾加上 '-SNAPSHOT' 修饰。格式：'1.0.0'，'1.0.0-SNAPSHOT'
+ * - pubDesc           描述信息，String 类型
+ * - pubSrcDirs        源码目录路径，String 类型。如果该配置有效，则打包和发布源代码。可配置一个或多个。ArrayList<String> 类型。格式：["src/main/groovy", "xxx/src/main/java", ...]
+ * - pubSourceEnable   是否打包和发布源码，boolean 类型
+ * - pubJavaDocEnable  是否生成和发布 javaDoc，boolean 类型
+ * - pubHtmlDocEnable  是否生成和发布 htmlDoc，boolean 类型
+ * - pubArchivePath    归档文件的绝对路径，String 类型。格式：'xx/xx/xxx.jar','xx/xx.aar'
+ * - pubExtraFiles     额外的文件路径列表，将这些文件打包成 zip 并发布，List<String> 类型。格式：['x/xx.txt', 'x/xxx.a', 'xx/xx.html', 'x/x/x.zip', ...]
+ *
+ * javadoc 功能可能会导致 Gradle 报错（注释格式不规范或其它原因等），这时候可以尝试将pomJavaDoc置为false，不输出javadoc文档
+ * </pre>
+ */
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+def EXT_TASK_GROUP_NAME = 'ideaPublish'
+
+def pluginIdName = 'maven-publish'
+if (plugins.findPlugin(pluginIdName) == null) apply plugin: pluginIdName
+
+Plugin dokkaPlugin = plugins.findPlugin('org.jetbrains.dokka')
+/**
+ * 让dokka在离线模式下工作，防止一直下载不了东西导致耗时超长
+ * 无法下载：https://developer.android.com/reference/androidx/package-list
+ */
+private def doOffline(Plugin dokkaPlugin, def task) {
+    if (dokkaPlugin == null) return
+
+    //让 dokka 离线工作，防止一直下不了东西导致耗时超长
+    task.offlineMode = true
+    task.dokkaSourceSets {
+        try {
+            named('main') { t ->
+                t.noAndroidSdkLink = true
+                t.noJdkLink = true
+                t.noStdlibLink = true
+            }
+        } catch (Exception e) {
+            e.printStackTrace()
+        }
+    }
+}
+if (dokkaPlugin != null) {
+    dokkaHtml.each { doOffline(dokkaPlugin, it) }
+    dokkaJavadoc.each { doOffline(dokkaPlugin, it) }
+    dokkaGfm.each { doOffline(dokkaPlugin, it) }
+    dokkaJekyll.each { doOffline(dokkaPlugin, it) }
+}
+
+afterEvaluate {
+    def pubUrl = getPubMavenCentral()
+    def pubGroupId = getPubGroupId(project)
+    def pubArtifactId = getPubArtifactId(project)
+    def pubVersion = getPubVersion(project)
+    def pubJavaDocEnable = getPubJavaDocEnable()
+    def pubSrcDirs = getPubSrcDirs(project)
+    def pubSourceEnable = getPubSourceEnable()
+    def pubDesc = getPubDesc()
+    def pubExtraFiles = getPubExtraFiles()
+    def pubHtmlDocEnable = getPubHtmlDocEnable()
+    println("${project.name}发布配置：" +
+            "\nmaven仓库：$pubUrl" +
+            "\ngroupId=$pubGroupId" +
+            "\nartifactId=$pubArtifactId" +
+            "\nversion=$pubVersion" +
+            "\nbuildType=${getPubBuildType()}" +
+            "\nenable source=$pubSourceEnable" +
+            "\nenable javadoc=$pubJavaDocEnable" +
+            "\nenable htmlDoc=$pubHtmlDocEnable")
+    if (pubUrl == null || pubGroupId == null || pubArtifactId == null || pubVersion == null) {
+        println "maven 发布配置错误！"
+        return
+    }
+
+    publishing.publications { publicationContainer ->
+        //使用 create() 创建 MavenPublication 对象，并添加到 publications 容器中。闭包中可以配置此对象
+        // 直接 xxx(MavenPublication.class) 等价于 create("xxx", MavenPublication.class)，此种写法更接近于 DSL 风格
+        // 但是 create() 还可以指定 publication 的类型，不一定是 MavenPublication 类型
+
+        //创建用于发布的 Publication 对象
+        publicationContainer.create(project.name, MavenPublication.class) { publication ->
+            //from components.java //包含 sources, javadoc
+            publication.groupId = pubGroupId
+            publication.artifactId = pubArtifactId
+            publication.version = pubVersion
+
+            //打包归档文件 jar / aar
+            def archivePath = getPubArchivePath(project)
+            if (archivePath != null) {
+                //println "archive file path: ${archivePath}"
+                artifact(archivePath)
+            }
+
+            //打包源码
+            if (pubSourceEnable && pubSrcDirs != null && !pubSrcDirs.isEmpty()) {
+                def sourcesJarTaskName = "jarSources"
+                def sourcesJarTask = project.tasks.findByName(sourcesJarTaskName)
+                if (sourcesJarTask == null) {
+                    try {
+                        sourcesJarTask = project.task([type: org.gradle.jvm.tasks.Jar, group: EXT_TASK_GROUP_NAME], sourcesJarTaskName) {
+                            getArchiveClassifier().set('sources')
+                            from pubSrcDirs
+                        }
+                    } catch (def ignore) {}
+                }
+
+                //println "sources path: ${sourcesJarTask.archiveFile}"
+                artifact(sourcesJarTask.archiveFile) {
+                    it.builtBy sourcesJarTask
+                    it.classifier 'sources'
+                    it.extension 'jar'
+                }
+            }
+
+            //使用 dokka 生成并打包成 javadoc
+            if (pubJavaDocEnable && dokkaPlugin != null) {
+                try {
+                    def javadocJarTaskName = "jarJavadoc"
+                    def javadocJarTask = project.tasks.findByName(javadocJarTaskName)
+                    if (javadocJarTask == null) {
+                        javadocJarTask = project.task([type: org.gradle.jvm.tasks.Jar, group: EXT_TASK_GROUP_NAME, dependsOn: dokkaJavadoc], javadocJarTaskName) {
+                            getArchiveClassifier().set('javadoc')
+                            def dirList = new ArrayList()
+                            dokkaJavadoc.each { dokkaTask ->
+                                //让 dokka 离线工作，防止一直下不了东西导致耗时超长
+                                dokkaTask.offlineMode = true
+                                dokkaTask.dokkaSourceSets {
+                                    named('main') {t ->
+                                        t.noAndroidSdkLink = true
+                                        t.includeNonPublic = false
+                                        t.skipEmptyPackages = false
+                                        t.reportUndocumented = false
+                                        t.skipDeprecated = false
+                                    }
+                                }
+
+                                def path = dokkaTask.outputDirectory.get().absolutePath
+                                //println "dokkaJavaDoc输出目录：$path"
+                                dirList.add(path)
+                            }
+                            from dirList
+
+                            doLast {
+                                println "dokkaJavaDoc jar输出目录：${Arrays.toString(dirList.toArray())}"
+                            }
+                        }
+                    }
+                    artifact(javadocJarTask.archiveFile) {
+                        it.builtBy javadocJarTask
+                        it.classifier 'javadoc'
+                        it.extension 'jar'
+                    }
+                } catch (def ignore) {}
+            }
+
+            //生成并打包 htmldoc
+            if (pubHtmlDocEnable && dokkaPlugin != null) {
+                try {
+                    def htmlDocJarTaskName = "jarHtmlDoc"
+                    def htmlDocJarTask = project.tasks.findByName(htmlDocJarTaskName)
+                    if (htmlDocJarTask == null) {
+                        htmlDocJarTask = project.task([type: org.gradle.jvm.tasks.Jar, group: EXT_TASK_GROUP_NAME, dependsOn: dokkaHtml], htmlDocJarTaskName) {
+                            getArchiveClassifier().set('htmldoc')
+                            def dirList = new ArrayList()
+                            dokkaHtml.each { dokkaTask ->
+                                //让 dokka 离线工作，防止一直下不了东西导致耗时超长
+                                dokkaTask.offlineMode = true
+                                dokkaTask.dokkaSourceSets {
+                                    named('main') {t ->
+                                        t.noAndroidSdkLink = true
+                                        t.includeNonPublic = false
+                                        t.skipEmptyPackages = false
+                                        t.reportUndocumented = false
+                                        t.skipDeprecated = false
+                                    }
+                                }
+
+                                def path = dokkaTask.outputDirectory.get().absolutePath
+                                //println "dokkaHtml 输出目录：$path"
+                                dirList.add(path)
+                            }
+                            from dirList
+
+                            doLast {
+                                println "dokkaHtml Jar 输出目录：${Arrays.toString(dirList.toArray(new String[0]))}"
+                            }
+                        }
+                    }
+                    artifact(htmlDocJarTask.archiveFile) {
+                        it.builtBy htmlDocJarTask
+                        it.classifier 'htmldoc'
+                        it.extension 'jar'
+                    }
+                } catch (def ignore) {}
+            }
+
+            //打包附加的文件
+            if (pubExtraFiles != null && !pubExtraFiles.isEmpty()) {
+                def extraFilesTask = project.task([type: Jar, group: EXT_TASK_GROUP_NAME], 'ZipExtraFiles') {
+                    getArchiveClassifier().set('extraFiles')
+                    from pubExtraFiles
+                }
+                artifact(extraFilesTask.archiveFile) {
+                    it.builtBy extraFilesTask
+                    it.classifier 'files'
+                    it.extension 'zip'
+                }
+            }
+
+            //自定义 pom 文件，以添加一些三方远程依赖，以及依赖排除
+            configPom(project, pom, pubDesc, pubArtifactId)
+        }
+    }
+
+    //maven 仓库配置
+    def pubMavenAccount = getPubMavenAccount()
+    publishing.repositories {
+        maven {
+            url = project.uri(pubUrl)
+
+            if (pubMavenAccount != null && pubMavenAccount.size() >= 2) {
+                credentials {
+                    username pubMavenAccount[0]
+                    password pubMavenAccount[1]
+                }
+            }
+            allowInsecureProtocol true
+        }
+    }
+}
+
+/**
+ * 获取是否发布 htmlDoc。如果未配置，默认返回 true
+ * @return true 表示发布，否则不发布
+ */
+private boolean getPubHtmlDocEnable() {
+    def ret = getPublishExt("pubHtmlDocEnable")
+
+    ret != null && ret == true
+}
+
+private def getPublishExt(String name) {
+    def extMap = getExtensions().extraProperties
+    if (extMap.has(name)) return extMap.get(name)
+
+    null
+}
+
+/**
+ * 获取 maven 仓库地址
+ * @return maven 仓库地址
+ */
+private String getPubMavenCentral() {
+    def url = getPublishExt('pubMavenCentral')
+    if (url == null) throw new RuntimeException("无法获取 maven 仓库地址！是否已经配置参数 'pubMavenCentral'？")
+
+    url.toString()
+}
+
+/**
+ * 获取groupId
+ * @return groupId
+ */
+private String getPubGroupId(Project target) {
+    def groupId = getPublishExt('pubGroupId')
+    if (groupId == null || groupId == '') {
+        try {
+            def slurper = new XmlSlurper()
+            def file = target.file('src/main/AndroidManifest.xml') //仅支持 main flavor
+            if (file.exists()) {
+                def result = slurper.parse(file)
+                groupId = result['@package']
+            }
+
+            if (groupId != null) {
+                groupId = groupId.toString().replaceAll('/', '\\.').replaceAll('\\\\', '\\.')
+            }
+        } catch (Exception e) {
+            e.printStackTrace()
+        }
+    }
+
+    if (groupId == null || groupId == '') throw new RuntimeException("无法获取 groupId！是否已经配置参数 'pubGroupId'？")
+
+    groupId.toString()
+}
+
+/**
+ * 获取 artifactId，如果未配置，则默认使用 module 的名称
+ * @return artifactId
+ */
+private String getPubArtifactId(Project target) {
+    def artifactId = getPublishExt('pubArtifactId')
+    if (artifactId == null && target) artifactId = target.name
+    if (artifactId == null) throw new RuntimeException("无法获取 artifactId！")
+
+    artifactId.toString()
+}
+
+/**
+ * 获取 version，如果未配置，则默认为 '1.0.0'
+ * @return version
+ */
+private String getPubVersion(Project target) {
+    def version = getPublishExt('pubVersion')
+    if (version == null && target) version = target.android.defaultConfig.versionName
+    if (version == null) version = '1.0.0'
+
+    version.toString()
+}
+
+/**
+ * 获取描述信息，如果未配置，则为空
+ * @return 描述信息
+ */
+private String getPubDesc() {
+    def desc = getPublishExt('pubDesc')
+    if (desc == null) return null
+
+    desc.toString()
+}
+
+/**
+ * 发布版本，取值为 “debug” 或 “release”，对应 debug 和 release 的 jar 包。预设返回 “release”
+ */
+private String getPubBuildType() {
+    def type = getPublishExt('pubBuildType')
+    if (type != "release" && type != "debug") type = "release"
+
+    type
+}
+
+/**
+ * 获取是否发布 javaDoc。如果未配置，默认返回 false
+ * @return true 表示发布，否则不发布
+ */
+private boolean getPubJavaDocEnable() {
+    def b = getPublishExt('pubJavaDocEnable')
+
+    b != null && b == true
+}
+
+/**
+ * 找到指定构建类型的 aar 输出路径
+ * @param buildType 构建版本，取值为 "release" 或 "debug"
+ * @return aar 文件路径
+ */
+private static def findAarPath(String buildType, Project target) {
+    String aarPath = null
+    if (target == null) return null
+    try {
+        target.android.libraryVariants.all { variant ->
+            variant.outputs.all { output ->
+                if (variant.name == buildType && outputFileName.endsWith(".aar")) {
+                    try {
+                        //aarPath = variant.getPackageLibraryProvider().get()
+                        aarPath = output.outputFile.absolutePath //这里仍然过时了，可能需要换个方法？
+                        // variant.getPackageLibrary() 已在 gradle8.x 被移除
+                        //def destDir = variant.getPackageLibrary().destinationDir
+                        //aarPath = "${destDir.absolutePath}/${outputFileName}"
+                    } catch (e) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+        }
+    } catch (Exception e) {
+        e.printStackTrace()
+    }
+    aarPath
+}
+
+/**
+ * 获取外部指定的构建版本文件路径。如果获取到有效值，则忽略 pubBuildType 配置。
+ */
+private String getPubArchivePath(Project target) {
+    String path = getPublishExt('pubArchivePath')
+    if (path == null) path = findAarPath(getPubBuildType(), target)
+    if (path == null) println "无法找到归档文件！"
+
+    path
+}
+
+/**
+ * 获取源码目录，如果未配置，则取 main 中的默认资源目录
+ * @return 可能为 null
+ */
+private ArrayList<Object> getPubSrcDirs(Project target) {
+    def dirs = getPublishExt('pubSrcDirs')
+    if (dirs == null) dirs = target.android.sourceSets.main.java.srcDirs
+
+    dirs
+}
+
+/**
+ * 获取是否允许发布源码。
+ * @return true 表示发布，否则不发布
+ */
+private boolean getPubSourceEnable() {
+    def b = getPublishExt('pubSourceEnable')
+
+    b != null && b == true
+}
+
+/**
+ * 获取附加的归档文件绝对路径集。
+ * @return 附加归档文件绝对路径集，可能为 null
+ */
+private Set<String> getPubExtraFiles() {
+    getPublishExt('pubExtraFiles')
+}
+
+/**
+ * 获取 maven 仓库账户信息
+ * @return maven 仓库的账户信息（用户名 和 用户密码）
+ */
+private ArrayList<String> getPubMavenAccount() {
+    getPublishExt('pubMavenAccount')
+}
+
+private static void configPom(Project project, MavenPom pom, String description, String artifactId) {
+    pom.withXml {
+        if (description != null) asNode().appendNode('description', description)
+        if (artifactId != null) asNode().appendNode('name', artifactId)
+
+        //添加三方依赖项
+        //<dependencies>
+        //  ...
+        //  <dependency>
+        //      <groupId>x.x.x</groupId>
+        //      <artifactId>yyy</artifactId>
+        //      <version>z.z.z</version>
+        //      <scope>compile|runtime|provided|test|system|import</scope>
+        //      <type>jar/war/aar/pom等等，默认jar</type>
+        //  </dependency>
+        //  ...
+        //</dependencies>
+        def depNode = it.asNode().appendNode('dependencies')
+        try {
+            //1. 添加 api 方式的三方依赖
+            project.configurations.api.allDependencies.each { dependency ->
+                addDependencyNode(depNode, dependency)
+            }
+
+            //2. 添加 releaseApi 方式的三方依赖
+            //不考虑 test，assembleDebug，只考虑assembleRelease
+            ArrayList<String> list = new ArrayList<>()
+            gradle.startParameter.taskRequests.each { request -> list.addAll(request.args) }
+            if (list.contains('assembleRelease')) {
+                project.configurations.releaseApi.allDependencies.each { dependency ->
+                    addDependencyNode(depNode, dependency)
+                }
+            }
+        } catch (def ignore) {}
+    }
+}
+
+/**
+ * 排除的依赖项
+ * <dependency>
+ *  <groupId></groupId>
+ *  <artifactId></artifactId>
+ *  <version></version>
+ *  <scope></scope>
+ *  ...
+ *  <exclusions>
+ *      <exclusion>
+ *          <groupId>xxx</groupId>
+ *          <artifactId>xxx</artifactId>
+ *      </exclusion>
+ *  </exclusions>
+ *  ...
+ * </dependency>
+ * @param depNode dependencies 标签节点
+ * @param dependency
+ * @return
+ */
+private static Node addDependencyNode(Node depNode, Dependency dependency) {
+    if (dependency.name == null || dependency.name == 'unspecified'               //artifactId
+            || dependency.version == null || dependency.version == 'unspecified'  //version
+            || dependency.group == null || dependency.group == 'unspecified'      //groupId
+    ) return null
+
+    def node = depNode.appendNode('dependency')
+    node.appendNode('groupId', dependency.group)
+    node.appendNode('artifactId', dependency.name)
+    node.appendNode('version', dependency.version)
+
+    //额外添加
+    node.appendNode('scope', 'compile')
+
+    //排除依赖规则（exclude()）
+    // api(xxx) {
+    //      exclude(group='xxx', module='xxx')
+    //}
+    HashSet<DefaultExcludeRule> set = dependency.excludeRules
+    if (set != null && !set.isEmpty()) {
+        def exclusionsNode = node.appendNode('exclusions')
+        set.each { rule ->
+            node = exclusionsNode.appendNode('exclusion')
+            node.appendNode('groupId', rule.group)
+            node.appendNode('artifactId', rule.module)
+        }
+    }
+
+    node
+}

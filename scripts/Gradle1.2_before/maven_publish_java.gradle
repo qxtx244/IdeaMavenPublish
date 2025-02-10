@@ -1,0 +1,188 @@
+
+/*
+ * 实现上传到maven仓库，仅适用于java library，不支持kotlin语言
+ *
+ * 此脚本仅适用于Gradle1.2或更低版本
+ *
+ * > 基本概念
+ *   android library：引入了com.android.application或com.android.library插件的module
+ *   java library：未引入com.android.application或com.android.library插件的module，使用java/groovy语言编写的项目
+ *
+ * > 使用步骤：
+ *   1. 在module的build.gradle最后面添加如下代码：
+ *      ext.pomSrcDirs = ["src/main/groovy", "xxx/src/main/java", ...]    //必须配置
+ *      ext.pomGroupId = 'a.b.xxx' //一般用library的包名                   //必须配置
+ *      ext.pomVersion = '1.2.3' //版本名称                                //必须配置
+ *      ...
+ *
+ *      apply from: "本文件路径（右键文件》CopyPath即可复制文件绝对路径"   //必须添加这行
+*    2. 检查build.gradle中的上传配置是否正确（比如maven仓库地址，版本名称，groupId，artifactId等）；
+ *   3. sync工程，然后build构建项目，执行assemble打包项目；
+ *   4. 点击展开AS右侧的"Gradle"面板，依次展开 module名称》Tasks》upload，双击执行"uploadArchives"任务，等待执行完成。
+ *   注意1：发布到snapshots仓库，版本名称必须在末尾加上“-SNAPSHOT”后缀，否则发布请求将会被远程仓库拒绝。
+ *   注意2：相同的release版本禁止重复发布。
+ *
+ * > 参数配置说明：
+ *   允许在外部配置关键参数，可使用的ext变量如下（在build.gradle中配置：ext.xxx = yyy）。当未定义时，将取默认值
+ *   pomMavenAccount   maven账户信息，ArrayList<String>类型，格式：['账户名', '账户密码']
+ *   pomMavenCentral   maven仓库地址，String类型
+ *   pomGroupId        组id，String类型。通常使用module包名
+ *   pomArtifactId     artifactId，String类型。通常使用module名称，即project.name
+ *   pomVersion        版本名称，String类型。如果是发布到snapshots仓库需要在末尾加上'-SNAPSHOT'关键字
+ *   pomDesc           描述信息，String类型
+ *   pomSrcDirs        源码目录路径，String类型。可配置一个或多个。ArrayList<String>类型，格式：['xx', 'yy', ...]
+ *   pomJavaDocEnable  是否生成 javaDoc，boolean 类型
+ */
+
+//仅支持于Gradle1.2或更低版本
+apply plugin: 'maven'
+
+/**
+ * 获取是否生成javaDoc的配置信息。如果未配置，默认返回false
+ * @return true表示生成javaDoc，否则不生成javaDoc
+ */
+private boolean isJavaDocEnable() {
+    def ret = getPomExt("pomJavaDocEnable")
+    ret != null && ret == true
+}
+
+/**
+ * 获取maven私服验证信息，即账户和密码。如果为null，则表示不需要使用账户密码
+ * @return 账户和密码
+ */
+private ArrayList<String> getPomMavenAccount() {
+    getPomExt("pomMavenAccount")
+}
+
+/**
+ * 获取maven仓库地址，如果ext未定义，返回本地仓库路径
+ * @return maven仓库地址
+ */
+private String getPomMavenCentral() {
+    def url = getPomExt("pomMavenCentral")
+    if (url == null) url = "${rootDir.absolutePath}/.mavenCentral"
+    if (url == null) throw new Exception("无法获取maven仓库地址！")
+    url.toString()
+}
+
+/**
+ * 获取groupId
+ * @return groupId
+ */
+private String getPomGroupId() {
+    def groupId = getPomExt("pomGroupId")
+    if (groupId == null) throw Exception("无法获取 groupId！是否已经配置参数 'pubGroupId'？")
+    groupId.toString()
+}
+
+/**
+ * 获取artifactId，如果ext未定义，则使用project名称
+ * @return artifactId
+ */
+private String getPomArtifactId() {
+    def artifactId = getPomExt("pomArtifactId")
+    if (artifactId == null) artifactId = project.name
+    artifactId.toString()
+}
+
+/**
+ * 获取version
+ * @return version
+ */
+private String getPomVersion() {
+    def version = getPomExt("pomVersion")
+    if (version == null) throw Exception("无法获取 version！是否已经配置参数 'pomVersion'？")
+    version.toString()
+}
+
+/**
+ * 获取描述信息
+ * 如果ext未定义，则为空
+ * @return 描述信息
+ */
+private String getPomDesc() {
+    def desc = getPomExt("pomDesc")
+    if (desc == null) desc = ''
+    desc.toString()
+}
+
+/**
+ * 获取源码目录
+ * @return 可能为null
+ */
+private ArrayList<String> getPomSrcDirs() {
+    getPomExt("pomSrcDirs")
+}
+
+private def getPomExt(String name) {
+    def extMap = getExtensions().extraProperties
+    if (extMap.has(name)) return extMap.get(name)
+    null
+}
+
+/** 需要认证的maven仓库url */
+def CREDENTIAL_CENTRAL_URL = "xxx"
+/** 认证账户 */
+def CREDENTIAL_USER = "yyy"
+/** 认证密码 */
+def CREDENTIAL_PASSWORD = "zzz"
+
+uploadArchives {
+    repositories.mavenDeployer {
+        def centralUrl = getPomMavenCentral()
+        repository('url': centralUrl) {
+            def info = getPomMavenAccount()
+            if (info != null) {
+                authentication(userName: info[0], password: info[1])
+            } else {
+                if (centralUrl.startsWith(CREDENTIAL_CENTRAL_URL)) {
+                    //println "默认maven仓库，使用预置的账号认证"
+                    authentication(userName: CREDENTIAL_USER, password: CREDENTIAL_PASSWORD)
+                }
+            }
+
+            pom.project {
+                groupId      getPomGroupId()
+                artifactId   getPomArtifactId()
+                version      getPomVersion()
+                description  getPomDesc()
+            }
+        }
+    }
+
+    doLast {
+        def url = getPomMavenCentral()
+        def artifactId = getPomArtifactId()
+        def groupId = getPomGroupId()
+        def version = getPomVersion()
+        def fullyPath = "$url/$groupId/$artifactId"
+        println "${artifactId} 模块的maven仓库：$fullyPath, 最新版本为${version}. See $url"
+    }
+}
+
+/** 生成javaDoc */
+task javadocs(type: Javadoc) {
+    options {
+        encoding('utf-8')
+        links 'http://docs.oracle.com/javase/8/docs/api'
+    }
+    failOnError = false
+    source getPomSrcDirs()
+}
+
+task javadocsJar(type: Jar, dependsOn: javadocs, group: 'extension') {
+    getArchiveClassifier().set('javadoc')
+    from javadocs.destinationDir
+}
+
+task sourcesJar(type: Jar, group: 'extension') {
+    getArchiveClassifier().set('sources')
+    from getPomSrcDirs()
+}
+
+artifacts {
+    archives sourcesJar
+    if (isJavaDocEnable()) {
+        archives javadocsJar
+    }
+}

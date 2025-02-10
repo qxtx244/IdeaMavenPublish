@@ -21,15 +21,18 @@ android {
 
 //示例1：发布到本地maven仓库
 ext {
-    //pomGroupId = 'com.qxtx.idea.gradle.mavenpublish'       //可选配置，如未配置，默认使用包名
-    //pomArtifactId = 'android-java-script'                          //可选配置，如未配置，默认使用module名称（project.name）
-    pomMavenCentral = "${rootDir.absolutePath}/.mavenCentral"  //可选配置，如果未配置，使用脚本中的预设值
+    pubMavenCentral = "${rootDir.absolutePath}/.mavenCentral"
+    pubJavaDocEnable = true
+    pubSourceEnable = true
+    pubExtraFiles = ['README.md']
+    pubGroupId = 'com.qxtx.idea.gradle.mavenpublish'
+    pubArtifactId = 'scriptDemo_android_java'
 }
-apply from: "${rootDir.absolutePath}/scripts/Gradle7.x_after/maven_publish_android.gradle"  //引入脚本
+apply from: "${rootDir.absolutePath}/scripts/Gradle1.3_after/maven_publish_android.gradle"  //引入脚本
 
 ////示例2：发布到远程maven仓库
 //ext {
-//    pomMavenAccount = ['账户名称', '账户密码']
-//    pomMavenCentral = "https://s01.oss.sonatype.org/content/repositories/releases/"
+//    pubMavenAccount = ['账户名称', '账户密码']
+//    pubMavenCentral = "https://s01.oss.sonatype.org/content/repositories/releases/"
 //}
-//apply from: "${rootDir.absolutePath}/scripts/Gradle7.x_after/maven_publish_android.gradle"
+//apply from: "${rootDir.absolutePath}/scripts/Gradle1.3_after/maven_publish_android.gradle"

@@ -12,7 +12,7 @@ dependencies {
     implementation gradleApi()
 }
 
-def versionName = '1.0.0'
+def versionName = '2.0.0'
 gradle.buildFinished {
     delete('jars')
     copy {
@@ -26,13 +26,14 @@ gradle.buildFinished {
 }
 
 ext {
-    pomBuildFilePath = project.file("jars/${project.name}-${versionName}.jar")
-    pomVersionName = versionName
-    pomSrcDirs = ["src/main/groovy"]
-    pomGroupId = 'com.qxtx.idea.gradle'
-    pomArtifactId = 'IdeaMavenPublishJava'
-    pomJavaDocEnable = 'true'
-    pomDesc = 'The maven publish plugin for java library'
-    pomMavenCentral = "${rootDir.absolutePath}/.mavenCentral"
+    pubMavenCentral = "${rootDir.absolutePath}/.mavenCentral"
+    pubVersion = versionName
+    pubGroupId = 'com.qxtx.idea.gradle'
+    pubArtifactId = 'MavenPublish_Java'
+    pubSrcDirs = ['src/main/groovy']
+    pubArchivePath = project.file("jars/${project.name}-${versionName}.jar").absolutePath
+    pubGroovyDocEnable = true
+    pubDesc = 'The maven publish plugin for java library'
+    pubExtraFiles = ['README.md']
 }
-apply from: "${rootDir.absolutePath}/scripts/Gradle7.x_after/maven_publish_java.gradle"  //引入脚本
+apply from: "${rootDir.absolutePath}/scripts/Gradle1.3_after/maven_publish_java.gradle"

@@ -35,15 +35,20 @@ dependencies {
 
 //示例1：发布到本地maven仓库
 ext {
-    //pomGroupId = 'com.qxtx.idea.gradle.mavenpublish'          //可选配置，如未配置，默认使用包名
-    //pomArtifactId = 'android-kt-script'                         //可选配置，如未配置，默认使用module名称（project.name）
-    pomMavenCentral = "${rootDir.absolutePath}/.mavenCentral"  //可选配置，如果未配置，使用脚本中的预设值
+    pubMavenCentral = "${rootDir.absolutePath}/.mavenCentral"       //必须配置
+    pubJavaDocEnable = true
+    pubHtmlDocEnable = true
+    pubSourceEnable = true
+    pubGroupId = 'com.qxtx.idea.gradle.mavenpublish'
+    pubArtifactId = 'scriptDemo_android_kt'
+    pubExtraFiles = ['README.md']
+
 }
-apply from: "${rootDir.absolutePath}/scripts/Gradle7.x_after/maven_publish_android_dokka.gradle"  //引入脚本
+apply from: "${rootDir.absolutePath}/scripts/Gradle1.3_after/maven_publish_android_dokka.gradle"  //引入脚本
 
 ////示例2：发布到远程maven仓库
 //ext {
-//    pomMavenAccount = ['账户名称', '账户密码']
-//    pomMavenCentral = "https://s01.oss.sonatype.org/content/repositories/releases/"
+//    pubMavenAccount = ['账户名称', '账户密码']
+//    pubMavenCentral = "https://s01.oss.sonatype.org/content/repositories/releases/"
 //}
-//apply from: "${rootDir.absolutePath}/scripts/Gradle7.x_after/maven_publish_android_dokka.gradle"
+//apply from: "${rootDir.absolutePath}/scripts/Gradle1.3_after/maven_publish_android_dokka.gradle"

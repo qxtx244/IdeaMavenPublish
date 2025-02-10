@@ -1,0 +1,36 @@
+plugins {
+    id 'java-library'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+//注意，只能同时使用一种示例
+
+//示例1：发布到本地maven仓库
+ext {
+    pubMavenCentral = "${rootDir.absolutePath}/.mavenCentral"
+    pubGroupId = 'com.qxtx.idea.gradle.mavenpublish'  //必须配置
+    pubArtifactId = 'scriptDemo_java'                 //必须配置
+    pubVersion = '1.0.0'                          //必须配置
+    pubSrcDirs = ["src/main/java"]
+    pubSourceEnable = true
+    pubJavaDocEnable = true
+    pubExtraFiles = ['README.md']
+
+}
+apply from: "${rootDir.absolutePath}/scripts/Gradle1.3_after/maven_publish_java.gradle"  //引入脚本
+
+////示例2：发布到远程maven仓库
+//ext {
+//    pubVersion = '1.0.0'
+//    pubSrcDirs = ["src/main/java"]
+//    pubGroupId = 'com.qxtx.idea.gradle.mavenpublish'
+//    pubArtifactId = 'scriptDemo_java'
+//    pubJavaDocEnable = "true"
+//    pubMavenAccount = ['账户名称', '账户密码']
+//    pubMavenCentral = "https://s01.oss.sonatype.org/content/repositories/releases/"
+//}
+//apply from: "${rootDir.absolutePath}/scripts/Gradle1.3_after/maven_publish_java.gradle"

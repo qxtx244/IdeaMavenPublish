@@ -3,13 +3,18 @@
   <component name="CompilerConfiguration">
     <bytecodeTargetLevel target="1.8">
       <module name="IdeaMavenPublish.buildSrc" target="11" />
+      <module name="IdeaMavenPublish.buildSrc.main" target="11" />
+      <module name="IdeaMavenPublish.buildSrc.test" target="11" />
       <module name="IdeaMavenPublish.demo-android-java" target="11" />
       <module name="IdeaMavenPublish.demo-android-java-kt" target="11" />
       <module name="IdeaMavenPublish.demo-android-kt" target="11" />
       <module name="IdeaMavenPublish.demo-test" target="11" />
+      <module name="IdeaMavenPublish.demo-use-plugin.libAndroid" target="11" />
+      <module name="IdeaMavenPublish.demo-use-plugin.libAndroidDokka" target="11" />
       <module name="IdeaMavenPublish.demo-use-script.lib-android-java" target="11" />
       <module name="IdeaMavenPublish.demo-use-script.lib-android-java-kt" target="11" />
       <module name="IdeaMavenPublish.demo-use-script.lib-android-kt" target="11" />
+      <module name="IdeaMavenPublish.myapplication" target="11" />
     </bytecodeTargetLevel>
   </component>
 </project>
