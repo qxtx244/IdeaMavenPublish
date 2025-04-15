@@ -7,9 +7,9 @@ buildscript {
         mavenCentral()
     }
 
-    dependencies {
-        classpath 'com.qxtx.idea.gradle:MavenPublish_Android:2.0.0'  //添加插件的环境变量
-    }
+//    dependencies {
+//        classpath 'com.qxtx.idea.gradle:MavenPublish_Android:2.0.0'  //添加插件的环境变量
+//    }
 }
 
 plugins {
@@ -45,15 +45,15 @@ dependencies {
     implementation 'com.google.android.material:material:1.5.0'
 }
 
-apply plugin: 'idea-publish'
-MavenPublish {
-    pubMavenCentral "${rootDir.absolutePath}/.mavenCentral"  //可选
-    pubGroupId = 'com.qxtx.idea.gradle.mavenpublish'  //必须配置
-    pubVersion = '2.0.0'                             //必须配置
-    pubSrcDirs = ["src/main/java"]                 //必须配置
-    pubArtifactId = 'pluginDemo_android'                //必须配置
-    pubJavaDocEnable = true
-    pubSourceEnable = true
-    pubDesc = "测试 maven 发布功能"
-    pubExtraFiles = [ 'README.md' ]
-}
+//apply plugin: 'idea-publish'
+//MavenPublish {
+//    pubMavenCentral "${rootDir.absolutePath}/.mavenCentral"  //可选
+//    pubGroupId = 'com.qxtx.idea.gradle.mavenpublish'  //必须配置
+//    pubVersion = '2.0.0'                             //必须配置
+//    pubSrcDirs = ["src/main/java"]                 //必须配置
+//    pubArtifactId = 'pluginDemo_android'                //必须配置
+//    pubJavaDocEnable = true
+//    pubSourceEnable = true
+//    pubDesc = "测试 maven 发布功能"
+//    pubExtraFiles = [ 'README.md' ]
+//}
