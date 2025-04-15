@@ -16,7 +16,7 @@ import org.gradle.jvm.tasks.Jar
  */
 class MavenPublishImpl extends Base {
 
-    private final String EXT_TASK_GROUP_NAME = 'ideaPublish'
+    private final String EXT_TASK_GROUP_NAME = 'idea'
     private final def DOKKA_PLUGIN = 'org.jetbrains.dokka'
 
     private LegacyMavenPublishImpl legacyImpl = null
@@ -63,8 +63,7 @@ class MavenPublishImpl extends Base {
         def publishing = target.extensions.getByType(PublishingExtension.class)
         if (publishing == null) return
 
-        pluginIdName = DOKKA_PLUGIN
-        def dokkaPlugin = target.plugins.findPlugin(pluginIdName)
+        def dokkaPlugin = target.plugins.findPlugin(DOKKA_PLUGIN)
         if (dokkaPlugin != null) {
             /**
              * 让dokka在离线模式下工作，防止一直下载不了东西导致耗时超长
@@ -131,44 +130,79 @@ class MavenPublishImpl extends Base {
                 }
 
                 //打包 javadoc
-                if (pubJavaDocEnable && dokkaPlugin != null) {
+                if (pubJavaDocEnable) {
                     def javadocJarTaskName = "generalJavadoc"
                     def javadocJarTask = target.tasks.findByName(javadocJarTaskName)
                     try {
-                        if (javadocJarTask == null && pubSrcDirs != null) {
-                            def dokkaJavaDocTask = target.tasks.findByName('dokkaJavadoc')
-                            if (dokkaJavaDocTask == null) throw new IllegalArgumentException("dokkaJavaDoc task is not exist!")
+                        if (dokkaPlugin != null) {
+                            if (javadocJarTask == null && pubSrcDirs != null) {
+                                def dokkaJavaDocTask = target.tasks.findByName('dokkaJavadoc')
+                                if (dokkaJavaDocTask == null) throw new IllegalArgumentException("dokkaJavaDoc task is not exist!")
 
-                            javadocJarTask = target.task([type: org.gradle.jvm.tasks.Jar, group: EXT_TASK_GROUP_NAME, dependsOn: dokkaJavaDocTask], javadocJarTaskName) {
-                                getArchiveClassifier().set('javadoc')
-                                def dirList = new ArrayList()
-                                dokkaJavaDocTask.each { dokkaTask ->
-                                    dokkaTask.offlineMode = true
-                                    dokkaTask.dokkaSourceSets {
-                                        named('main') {t ->
-                                            t.noAndroidSdkLink = true
-                                            t.includeNonPublic = false
-                                            t.skipEmptyPackages = false
-                                            t.reportUndocumented = false
-                                            t.skipDeprecated = false
+                                javadocJarTask = target.task([type: org.gradle.jvm.tasks.Jar, group: EXT_TASK_GROUP_NAME, dependsOn: dokkaJavaDocTask], javadocJarTaskName) {
+                                    getArchiveClassifier().set('javadoc')
+                                    def dirList = new ArrayList()
+                                    dokkaJavaDocTask.each { dokkaTask ->
+                                        dokkaTask.offlineMode = true
+                                        dokkaTask.dokkaSourceSets {
+                                            named('main') { t ->
+                                                t.noAndroidSdkLink = true
+                                                t.includeNonPublic = false
+                                                t.skipEmptyPackages = false
+                                                t.reportUndocumented = false
+                                                t.skipDeprecated = false
+                                            }
                                         }
+
+                                        def path = getDokkaOutputPath(dokkaTask)
+                                        //println "dokkaJavaDoc输出目录：$path"
+                                        dirList.add(path)
                                     }
+                                    from dirList
 
-                                    def path = dokkaTask.outputDirectory.get().absolutePath
-                                    //println "dokkaJavaDoc输出目录：$path"
-                                    dirList.add(path)
+                                    doLast {
+                                        println "dokkaJavaDoc jar输出目录：${Arrays.toString(dirList.toArray())}"
+                                    }
                                 }
-                                from dirList
 
-                                doLast {
-                                    println "dokkaJavaDoc jar输出目录：${Arrays.toString(dirList.toArray())}"
+                                artifact(javadocJarTask.archiveFile) {
+                                    it.builtBy javadocJarTask
+                                    it.classifier 'javadoc'
+                                    it.extension 'jar'
                                 }
                             }
+                        } else {
+                            def javadocTaskName = "javadoc"
+                            def javadocTask = target.tasks.findByName(javadocTaskName)
+                            if (javadocTask == null && pubSrcDirs != null) {
+                                javadocTask = target.task([type: org.gradle.api.tasks.javadoc.Javadoc, group: EXT_TASK_GROUP_NAME], javadocTaskName) {
+                                    options {
+                                        encoding('utf-8')
+                                        links 'http://docs.oracle.com/javase/8/docs/api'
+                                    }
+                                    failOnError = false
+                                    source = pubSrcDirs
+                                    if (target.android != null) {
+                                        //为 javadoc 添加 android.jar 依赖包，防止报错找不到相关类
+                                        classpath += target.files(target.android.getBootClasspath().join(File.pathSeparator))
+                                        classpath += target.files("${target.android.sdkDirectory}/platforms/${target.android.compileSdkVersion}/android.jar")
+                                    }
+                                }
+                            }
+                            if (javadocTask == null) throw new Exception()
 
-                            artifact(javadocJarTask.archiveFile) {
-                                it.builtBy javadocJarTask
-                                it.classifier 'javadoc'
-                                it.extension 'jar'
+                            if (javadocJarTask == null) {
+                                javadocJarTask = target.task([type: Jar, group: EXT_TASK_GROUP_NAME, dependsOn: javadocTask], javadocJarTaskName) {
+                                    getArchiveClassifier().set('javadoc')
+                                    from javadocTask.destinationDir
+                                }
+                            }
+                            if (javadocJarTask != null) {
+                                artifact(javadocJarTask.archiveFile) {
+                                    it.builtBy javadocJarTask
+                                    it.classifier 'javadoc'
+                                    it.extension 'jar'
+                                }
                             }
                         }
                     } catch (def e) {
@@ -201,7 +235,7 @@ class MavenPublishImpl extends Base {
                                         }
                                     }
 
-                                    def path = dokkaTask.outputDirectory.get().absolutePath
+                                    def path = getDokkaOutputPath(dokkaTask)
                                     //println "dokkaHtml 输出目录：$path"
                                     dirList.add(path)
                                 }
@@ -217,8 +251,8 @@ class MavenPublishImpl extends Base {
                             it.classifier 'htmldoc'
                             it.extension 'jar'
                         }
-                    } catch (def ignore) {
-                        ignore.printStackTrace()
+                    } catch (def e) {
+                        e.printStackTrace()
                     }
                 }
 
@@ -242,6 +276,16 @@ class MavenPublishImpl extends Base {
 
         //maven 仓库配置
         configRepo(target, publishing, pubUrl, getPubMavenAccount())
+    }
+
+    private static def getDokkaOutputPath(def dokkaTask) {
+        return dokkaTask.outputDirectory.get().toString() //dokka 1.6.20 中这个 output 是 File 对象，但 1.9.20 中却不是，但 toString() 都可以返回想要的路径字符串。
+//        def output = dokkaTask.outputDirectory.get()
+//        if (output instanceof File) {
+//            return output.absolutePath
+//        } else {
+//            return output.asFile.absolutePath
+//        }
     }
 
     private static void configRepo(Project target, PublishingExtension publishing, String repoUrl, ArrayList<String> account) {
@@ -400,12 +444,20 @@ class MavenPublishImpl extends Base {
     }
 
     /**
-     * 获取 version，如果未配置，则默认获取 defaultConfig 中定义的 versionName
+     * 获取 version，如果未配置，则默认获取 defaultConfig 中定义的版本名称
      * @return version
      */
     private String getPubVersion(Project target) {
         def version = config.pubVersion
-        if (version == null && target) version = target.android.defaultConfig.versionName
+        //Gradle 7.0 开始，library module 移除 defaultConfig {} 中的 versionCode 和 versionName 字段，而是只使用 version 字段。
+        if (version == null && target) {
+            def gradleVer = target.gradle.gradleVersion
+            if (gradleVer.charAt(0) > '7') {
+                version = target.android.defaultConfig.version
+            } else {
+                version = target.android.defaultConfig.versionName
+            }
+        }
         if (version == null) version = '1.0.0'
 
         version.toString()

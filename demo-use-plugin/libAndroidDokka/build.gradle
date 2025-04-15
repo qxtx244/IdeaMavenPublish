@@ -7,9 +7,9 @@ buildscript {
         mavenCentral()
     }
 
-//    dependencies {
-//        classpath 'com.qxtx.idea.gradle:MavenPublish_AndroidDokka:2.0.0'  //添加插件的环境变量
-//    }
+    dependencies {
+        classpath 'com.qxtx.idea.gradle:MavenPublish_AndroidDokka:2.0.0'  //添加插件的环境变量
+    }
 }
 
 plugins {
@@ -18,7 +18,7 @@ plugins {
     //使用dokka必须添加kotlin插件
     id 'org.jetbrains.kotlin.android'
 
-    id 'org.jetbrains.dokka' version '1.6.10'
+    //id 'org.jetbrains.dokka' version '1.6.10'
 }
 
 android {
@@ -50,16 +50,16 @@ dependencies {
 }
 
 
-////apply plugin: 'idea-publish'
-//MavenPublish {
-//    pubMavenCentral "${rootDir.absolutePath}/.mavenCentral"  //可选
-//    pubGroupId = 'com.qxtx.idea.gradle.mavenpublish'  //必须配置
-//    pubVersion = '2.0.0'                             //必须配置
-//    pubSrcDirs = ["src/main/java"]                 //必须配置
-//    pubArtifactId = 'pluginDemo_android_dokka'     //必须配置
-//    pubJavaDocEnable = true
-//    pubSourceEnable = true
-//    pubHtmlDocEnable = true
-//    pubDesc = "测试 maven 发布功能"
-//    pubExtraFiles = [ 'README.md' ]
-//}
+apply plugin: 'idea-publish'
+MavenPublish {
+    pubMavenCentral "${rootDir.absolutePath}/.mavenCentral"  //可选
+    pubGroupId = 'com.qxtx.idea.gradle.mavenpublish'  //必须配置
+    pubVersion = '2.0.0'                             //必须配置
+    pubSrcDirs = ["src/main/java"]                 //必须配置
+    pubArtifactId = 'pluginDemo_android_dokka'     //必须配置
+    pubJavaDocEnable = true
+    pubSourceEnable = true
+    pubHtmlDocEnable = true
+    pubDesc = "测试 maven 发布功能"
+    pubExtraFiles = [ 'README.md' ]
+}

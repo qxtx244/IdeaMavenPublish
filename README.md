@@ -34,38 +34,18 @@
 # 使用插件
 当前插件仅支持 Gradle 1.3 及更高的版本。对于不支持的 Gradle 版本，以 [Gradle 脚本][1] 的方式提供支持。
 
-## 发布 java library 到 maven 仓库 
-1. 在 module 的 build.gradle 中，添加 gradle 插件依赖：
-```groovy
-//注意，buildscript{} 代码块应位于任何其它代码之上，也就是文件最前面
-buildscript {
-    repositories {
-        mavenCentral()  //maven 中央仓库
-    }
-    dependencies {
-        classpath 'com.qxtx.idea.gradle:IdeaMavenPublishJava:1.0.0'  //插件依赖
-    }
-}
-```
-2. 在 module 的 build.gradle 中，引入插件：
-```groovy
-apply plugin: 'idea-maven-publish-java'  //引入插件
-com.qxtx.idea.gradle.mavenpublish_android.MavenPublish {                            //发布配置
-    pubGroupId 'group id，一般为包名'   //必须配置。插件依赖地址的组成部分（implementation 'groupId：artifactId：version'）
-    pubVersion '版本'            //必须配置。插件依赖地址的组成部分
-    pubSrcDirs = ["src/main/java"]    //必须配置。java 源码（相对于 module的）目录
-    pubArtifactId '插件名称，通常为 module 名称'                     //可选。插件依赖地址的组成部分，如缺省则默认使用 module 名称
-    pubJavaDocEnable true                                            //可选。是否同时发布 javadoc.jar
-    pubMavenCentral "${rootDir.absolutePath}/.mavenCentral"  //可选。maven 仓库地址，如缺省，默认发布到 工程\.mavenCentral
-}
-```
-3. 构建/编译 module。可以选择 build / rebuild / assemble 当前 module。
-4. 上传module。依次在 Android Studio 的 'Gradle' 面板中展开 工程名》module名》publishing，双击执行 'publish' 任务，即可完成发布。
+## 发布 android library 到 maven 仓库
+支持发布 java & kotlin 语言混合编写的 android library，同时支持生成 javadoc、htmldoc 等文档。  
+详细说明见 [插件说明][10]。
 
+## 发布 java library 到 maven 仓库
+仅支持发布使用 java 或 groovy 语言编写的 library，支持生成 javadoc、groovydoc 等文档。  
+详细说明见 [插件说明][11]。
 
 ## demo
 * [libJava][7] 演示了如何使用 gradle 插件将使用纯 java 编写的 java library 发布到指定的 maven 仓库。
 * [libAndroid][8] 演示了如何使用 gradle 插件将使用 java 编写的 android library 发布到指定的 maven 仓库。
+* [libAndroidDokka][9] 演示了如何使用 gradle 插件配合 Dokka 插件将使用 java & kotlin 编写的 android library 发布到指定的 maven 仓库。
 
 [1]: scripts
 [2]: scripts/README.md
@@ -75,3 +55,6 @@ com.qxtx.idea.gradle.mavenpublish_android.MavenPublish {                        
 [6]: demo-use-script/lib-java
 [7]: demo-use-plugin/libJava
 [8]: demo-use-plugin/libAndroid
+[9]: demo-use-plugin/libAndroidDokka
+[10]: mavenpublish-android-dokka/README.md
+[11]: mavenpublish-java/README.md
